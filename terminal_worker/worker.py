@@ -18,8 +18,11 @@ def run_terminal(command: str):
     try:
         # We use shell=True to allow complex commands
         result = subprocess.run(command, shell=True, capture_output=True, text=True, timeout=30)
-        output = f"STDOUT: {result.stdout}\nSTDERR: {result.stderr}"
-        return output if output.strip() else "Success (No output)"
+        if result.stdout:
+            return result.stdout.rstrip("\n")
+        if result.stderr:
+            return result.stderr.rstrip("\n")
+        return ""
     except Exception as e:
         return f"Error: {str(e)}"
 
@@ -29,9 +32,9 @@ def run_terminal(command: str):
 def start_agent():
     console.print(Panel("[bold cyan]Personal Worker Agent Active[/bold cyan]\nType 'exit' to quit.", title="Ollama M1"))
     
-    messages = [
+    base_messages = [
         {"role": "system", "content": "You are a helpful local terminal assistant. "
-         "Rule: If the user asks 'how to' or for instructions, answer directly without tools but in the context of terminal commands."
+         "Rule: If the user asks 'how to' or for instructions, answer directly with the associated terminal command, but do not execute it yourself."
          "Rule: If the user asks for a current fact/value (e.g., today's date, current folder), use run_terminal."
          "You have access to the user's files via the 'run_terminal' tool. "
          "Always stay in the current directory: " + os.getcwd()}
@@ -42,6 +45,7 @@ def start_agent():
         user_input = input("\n>> ")
         if user_input.lower() in ['exit', 'quit']: break
         
+        messages = list(base_messages)
         messages.append({"role": "user", "content": user_input})
 
         # Ask the model what to do
@@ -53,24 +57,30 @@ def start_agent():
 
         # case 1: model responds with terminal actions to take
         if response.message.tool_calls:
-            print ("here")
             for call in response.message.tool_calls:
                 cmd = call.function.arguments.get('command')
-                console.print(f"[yellow]William is running the command:[/yellow] {cmd}")
+                console.print(f"[yellow]\nWilliam wants to run the command:[/yellow] {cmd}")
+                
+                # if user enters y
+                user_input = input("\n>> [y/n]")
+
+                if user_input.lower() not in ['y', 'yes']:
+                    console.print("[red]\nCommand execution cancelled by user.[/red]")
+                    continue
                 
                 obs = run_terminal(cmd)
-                messages.append(response.message)
-                messages.append({"role": "tool", "content": obs, "name": "run_terminal"})
-                
-                # Get the final answer after the action
-                final = ollama.chat(model='qwen2.5:3b', messages=messages)
-                console.print(f"[green]William:[/green] {final.message.content}")
-                print(response.message.tool_calls)
+
+                if obs:
+                    console.print(obs)
+                    console.print("[green]\nCommand executed.[/green]")
+                # else:
+                #     console.print("[green](No output)[/green]")
+                # print(response.message.tool_calls)
        
        #case 2: model responds without taking terminal actions
         else:
-            console.print(f"[green]William:[/green] {response.message.content}")
-            print(response.message.tool_calls)
+            console.print(f"[green]William (case 2):[/green] {response.message.content}")
+            # print(response.message.tool_calls)
 
 if __name__ == "__main__":
     start_agent()
