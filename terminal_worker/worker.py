@@ -32,10 +32,13 @@ def run_terminal(command: str):
 def start_agent():
     console.print(Panel("[bold cyan]Personal Worker Agent Active[/bold cyan]\nType 'exit' to quit.", title="Ollama M1"))
     
-    base_messages = [
+    prompt_1 = [
         {"role": "system", "content": "You are a helpful local terminal assistant. "
-         "Rule: If the user asks 'how to' or for instructions, answer directly with the associated terminal command, but do not execute it yourself."
-         "Rule: If the user asks for a current fact/value (e.g., today's date, current folder), use run_terminal."
+         "When the user asks a question or commands you to perform an action that can be answered with a terminal command, choose a suitable command and use the 'run_terminal' tool to run it. "
+         "This includes file and folder operations (create, move, rename, delete), searching within files, listing contents, counting files/folders, printing paths, and inspecting text. "
+         "Prefer case-insensitive file extension matching (use '-iname') unless the user specifies exact case. "
+         "Example: User asks 'put all the pngs into a folder called \"pictures\"' -> run 'mkdir -p \"pictures\" && mv *.png \"pictures\"'. "
+         "If the user asks for something unrelated to the terminal, respond with 'I can only help with terminal commands.' "
          "You have access to the user's files via the 'run_terminal' tool. "
          "Always stay in the current directory: " + os.getcwd()}
     ]
@@ -45,7 +48,7 @@ def start_agent():
         user_input = input("\n>> ")
         if user_input.lower() in ['exit', 'quit']: break
         
-        messages = list(base_messages)
+        messages = list(prompt_1)
         messages.append({"role": "user", "content": user_input})
 
         # Ask the model what to do
@@ -71,10 +74,9 @@ def start_agent():
                 obs = run_terminal(cmd)
                 console.print("[green]\nCommand excecuted.[/green]")
 
-                # if obs:
-                #     console.print(obs)
-                #     print ("hello")
-                #     console.print("[green]\nCommand excecuted.[/green]")
+                # print the comman line observation/output
+                if obs:
+                    console.print(obs)
                 # else:
                 #     console.print("[green](No output)[/green]")
                 # print(response.message.tool_calls)
