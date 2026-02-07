@@ -115,7 +115,7 @@ def start_agent():
         if response.message.tool_calls and not is_explain:
             for call in response.message.tool_calls:
                 cmd = call.function.arguments.get('command')
-                console.print(f"[yellow]\nWilliam wants to run the command:[/yellow] {cmd}")
+                console.print(f"[yellow]\nWilliam wants to run the command:[/yellow] [bold]{cmd}[/bold]")
                 
                 # if user enters y
                 user_input = input("\n>> [y/n]\n")
@@ -136,7 +136,7 @@ def start_agent():
             for call in response.message.tool_calls:
                 cmd = call.function.arguments.get('command')
                 console.print(f"[green]William (explain):[/green] {response.message.content}")
-                console.print(f"[yellow]\nDo you want to run this command?:[/yellow] {cmd}")
+                console.print(f"[yellow]\nDo you want to run this command?:[/yellow] [bold]{cmd}[/bold]")
 
                 user_input = input("\n>> [y/n]\n")
 
