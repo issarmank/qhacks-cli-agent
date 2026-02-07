@@ -21,8 +21,7 @@ ACTION_VERBS = (
 )
 
 EXPLAIN_MARKERS = (
-    "how do i", "how to", "what is", "explain", "why", "help me understand", "what does",
-    "difference between", "when should i", "best way to", "pros and cons"
+    "how do", "how can", "how are", "explain"
 )
 
 # run_terminal is the tool that the llama model uses to interact with the terminal. It executes a bash command and returns the output.
@@ -61,6 +60,27 @@ def start_agent():
          "Always stay in the current directory: " + os.getcwd()}
     ]
 
+    # Define a strict tool schema (improves consistent structured tool_calls)
+    tool_schema = [
+        {
+            "type": "function",
+            "function": {
+                "name": "run_terminal",
+                "description": "Run a bash command and return its output.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "command": {
+                            "type": "string",
+                            "description": "The bash command to execute, e.g. 'pwd', 'ls -la', 'cat file.txt'"
+                        }
+                    },
+                    "required": ["command"]
+                },
+            },
+        }
+    ]
+
     # continuously get user input and interact with the model
     while True:
         user_input = input("\n>> ")
@@ -69,12 +89,22 @@ def start_agent():
         messages = list(prompt_1)
         messages.append({"role": "user", "content": user_input})
 
-        # Ask the model what to do
-        response = ollama.chat(
-            model='qwen2.5:3b',
-            messages=messages,
-            tools=[run_terminal],
-        )
+        # Gate tools based on EXPLAIN markers (prevents tool-like JSON in case 2)
+        lower = user_input.lower()
+        is_explain = any(m in lower for m in EXPLAIN_MARKERS)
+
+        # Ask the model what to do (optimized)
+        if is_explain:
+            response = ollama.chat(
+                model='qwen2.5:3b',
+                messages=messages,
+            )
+        else:
+            response = ollama.chat(
+                model='qwen2.5:3b',
+                messages=messages,
+                tools=tool_schema,
+            )
 
         # case 1: model responds with terminal actions to take
         if response.message.tool_calls:
