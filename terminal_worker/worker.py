@@ -69,10 +69,12 @@ def start_agent():
                     continue
                 
                 obs = run_terminal(cmd)
+                console.print("[green]\nCommand excecuted.[/green]")
 
-                if obs:
-                    console.print(obs)
-                    console.print("[green]\nCommand executed.[/green]")
+                # if obs:
+                #     console.print(obs)
+                #     print ("hello")
+                #     console.print("[green]\nCommand excecuted.[/green]")
                 # else:
                 #     console.print("[green](No output)[/green]")
                 # print(response.message.tool_calls)
