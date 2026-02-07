@@ -49,10 +49,17 @@ def start_agent():
     }]
 
     explain_prompt = [{
-        "role": "system", "content": "You are a helpful local terminal assistant. "
-        "Provide explanations and example commands for the user's conceptual questions about terminal operations. "
-        "Do NOT execute any commands. "
-        "If the user asks for something unrelated to the terminal, respond with 'I can only help with terminal commands.' "
+        "role": "system", "content": (
+            "You are a helpful local terminal assistant.\n"
+            "EXPLAIN MODE: Provide a short, terminal-friendly answer.\n"
+            "- Keep it concise: 1-2 sentances explaining the concept.\n"
+            "- Include at 1–3 example commands (as plain bash), only if helpful.\n"
+            "- No long paragraphs. No extra context. No storytelling.\n"
+            "- Do NOT execute any commands.\n"
+            "- Do NOT output JSON or tool-call objects.\n"
+            "If the user asks for something unrelated to the terminal, respond with: "
+            "'I can only help with terminal commands.'"
+        )
     }]
 
     # Define a strict tool schema (improves consistent structured tool_calls)
@@ -87,29 +94,25 @@ def start_agent():
 
         # EXPLAIN: model provides explanation without tool call
         if is_explain:
-            explain_messages = list(explain_prompt)  # reset to explain prompt each time
-            explain_messages.append({"role": "user", "content": user_input})
+            messeges = list(explain_prompt)  # reset to explain prompt each time
+            messeges.append({"role": "user", "content": user_input})
 
-            print ("EXPLAIN")
-
-            response = ollama.chat(
-                model='qwen2.5:3b',
-                messages=explain_messages,
-            )
+            print ("EXPLAIN MODE")
 
         # ACTION: model can call the run_terminal tool to execute commands
         else:
-            action_messages = list(action_prompt)  # reset to action prompt each time
-            action_messages.append({"role": "user", "content": user_input})
+            messeges = list(action_prompt)  # reset to action prompt each time
+            messeges.append({"role": "user", "content": user_input})
 
-            response = ollama.chat(
-                model='qwen2.5:3b',
-                messages=action_messages,
-                tools=tool_schema,
-            )
+
+        response = ollama.chat(
+            model='qwen2.5:3b',
+            messages=messeges,
+            tools=tool_schema,
+        )
 
         # case 1: model responds with terminal actions to take (ACTION)
-        if response.message.tool_calls:
+        if response.message.tool_calls and not is_explain:
             for call in response.message.tool_calls:
                 cmd = call.function.arguments.get('command')
                 console.print(f"[yellow]\nWilliam wants to run the command:[/yellow] {cmd}")
@@ -127,10 +130,25 @@ def start_agent():
                 # print the comman line observation/output
                 if obs:
                     console.print(obs) #obs is the output from the terminal after running the command
-       
-       #case 2: model responds without taking terminal actions (EXPLAIN)
-        else:
-            console.print(f"[green]William (case 2):[/green] {response.message.content}")
+
+        if response.message.tool_calls and is_explain:
+            # print ("explain")
+            for call in response.message.tool_calls:
+                cmd = call.function.arguments.get('command')
+                console.print(f"[green]William (explain):[/green] {response.message.content}")
+                console.print(f"[yellow]\nDo you want to run this command?:[/yellow] {cmd}")
+
+                user_input = input("\n>> [y/n]\n")
+
+                if user_input.lower() not in ['y', 'yes']:
+                    console.print("[red]\nCommand execution cancelled by user.[/red]")
+                    continue
+                
+                obs = run_terminal(cmd)
+                console.print("[green]\nCommand excecuted.[/green]")
+
+        elif(not response.message.tool_calls):
+            console.print(f"[red]No terminal actions detected in response.[/red] {response.message.content}")
 
 if __name__ == "__main__":
     start_agent()
