@@ -8,4 +8,4 @@ version = "0.1.0"
 dependencies = ["ollama", "rich"]
 
 [project.scripts]
-worker = "agent.worker:start_agent"
+worker = "terminal_worker.worker:start_agent"

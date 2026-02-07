@@ -8,6 +8,7 @@ from rich.panel import Panel
 # pip install ollama rich
 
 #inside terminal_worker folder: pip install -e .
+# 'worker'
 
 console = Console()
 
@@ -55,7 +56,7 @@ def start_agent():
                 
                 # Get the final answer after the action
                 final = ollama.chat(model='qwen2.5-coder:7b', messages=messages)
-                console.print(f"[green]🤖 Robot:[/green] {final.message.content}")
+                console.print(f"[green]🤖 Robot here:[/green] {final.message.content}")
         else:
             console.print(f"[green]🤖 Robot:[/green] {response.message.content}")
 
