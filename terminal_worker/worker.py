@@ -13,7 +13,7 @@ console = Console()
 
 # these phrases indicate the user wants an explanation rather than an action
 EXPLAIN_MARKERS = (
-    "how can i", "how do i", "why does", "explain"
+    "how can i", "how do i", "how can you","how can i","why does", "explain"
 )
 
 # run_terminal is the tool that the llama model uses to interact with the terminal. It executes a bash command and returns the output.
@@ -49,10 +49,17 @@ def start_agent():
     }]
 
     explain_prompt = [{
-        "role": "system", "content": "You are a helpful local terminal assistant. "
-        "Provide explanations and example commands for the user's conceptual questions about terminal operations. "
-        "Do NOT execute any commands. "
-        "If the user asks for something unrelated to the terminal, respond with 'I can only help with terminal commands.' "
+        "role": "system", "content": (
+            "You are a helpful local terminal assistant.\n"
+            "EXPLAIN MODE: Provide a short, terminal-friendly answer.\n"
+            "- Keep it concise: 1-2 sentances explaining the concept.\n"
+            "- Include at 1–3 example commands (as plain bash), only if helpful.\n"
+            "- No long paragraphs. No extra context. No storytelling.\n"
+            "- Do NOT execute any commands.\n"
+            "- Do NOT output JSON or tool-call objects.\n"
+            "If the user asks for something unrelated to the terminal, respond with: "
+            "'I can only help with terminal commands.'"
+        )
     }]
 
     # Define a strict tool schema (improves consistent structured tool_calls)
@@ -87,37 +94,44 @@ def start_agent():
 
         # EXPLAIN: model provides explanation without tool call
         if is_explain:
-            explain_messages = list(explain_prompt)  # reset to explain prompt each time
-            explain_messages.append({"role": "user", "content": user_input})
+            messages = list(explain_prompt)  # reset to explain prompt each time
 
             print ("EXPLAIN")
 
-            response = ollama.chat(
-                model='qwen2.5:3b',
-                messages=explain_messages,
-            )
-
+            
         # ACTION: model can call the run_terminal tool to execute commands
         else:
-            action_messages = list(action_prompt)  # reset to action prompt each time
-            action_messages.append({"role": "user", "content": user_input})
+            messages = list(action_prompt)  # reset to action prompt each time
 
-            response = ollama.chat(
-                model='qwen2.5:3b',
-                messages=action_messages,
-                tools=tool_schema,
-            )
+
+        messages.append({"role": "user", "content": user_input})
+
+        response = ollama.chat(
+            model='qwen2.5:3b',
+            messages=messages,
+            tools=tool_schema,
+        )
 
         # case 1: model responds with terminal actions to take (ACTION)
         if response.message.tool_calls:
             for call in response.message.tool_calls:
+
+                if is_explain:
+                    console.print(f"[yellow]\nWilliam wants to run the command:[/yellow] [bold]{cmd}[/bold]")
+
+                else: 
+                    console.print(f"[green]William (case 2):[/green] {response.message.content}")
+
                 cmd = call.function.arguments.get('command')
-                console.print(f"[yellow]\nWilliam wants to run the command:[/yellow] {cmd}")
-                
+
                 # if user enters y
                 user_input = input("\n>> [y/n]")
 
-                if user_input.lower() not in ['y', 'yes']:
+                if user_input.lower() not in ['y', 'yes'] and is_explain:
+                    console.print("[red]\nCommand execution cancelled by user.[/red]")
+                    continue
+
+                if user_input.lower() not in ['y', 'yes'] and not is_explain:
                     console.print("[red]\nCommand execution cancelled by user.[/red]")
                     continue
                 
@@ -129,8 +143,26 @@ def start_agent():
                     console.print(obs)
        
        #case 2: model responds without taking terminal actions (EXPLAIN)
+        elif (response.message.tool_calls and is_explain):
+            for call in response.message.tool_calls:
+                console.print(f"[green]William (case 2):[/green] {response.message.content}")
+                cmd = call.function.arguments.get('command')
+                console.print(f"[yellow]\Would you like to run this command?:[/yellow] [bold]{cmd}[/bold]")
+
+                user_input = input("\n>> [y/n]")
+
+                if user_input.lower() not in ['y', 'yes']:
+                    console.print("[red]\nCommand execution cancelled by user.[/red]")
+                    continue
+                
+                obs = run_terminal(cmd)
+                console.print("[green]\nCommand excecuted.[/green]")
+
+                if obs:
+                    console.print(obs)
+            
         else:
-            console.print(f"[green]William (case 2):[/green] {response.message.content}")
+            console.print(f"[green]William (case 2):[/green] No terminal actions suggested. Response: {response.message.content}")
 
 if __name__ == "__main__":
     start_agent()
