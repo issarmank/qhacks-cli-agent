@@ -9,19 +9,10 @@ from rich.panel import Panel
 
 #inside terminal_worker folder: pip install -e .
 # 'worker'
-
 console = Console()
 
-# Intent hints (used in the system prompt for routing guidance)
-ACTION_VERBS = (
-    "create", "make", "mkdir", "add", "install", "remove", "delete", "rm", "move", "mv",
-    "copy", "cp", "rename", "run", "execute", "open", "close", "kill", "start", "stop",
-    "list", "find", "search", "grep", "cat", "touch", "chmod", "chown", "zip", "unzip",
-    "tar", "curl", "wget", "git", "pip", "brew"
-)
-
 EXPLAIN_MARKERS = (
-    "how do", "how can", "how are", "explain"
+    "how can i", "how do i", "what is", "why does", "explain"
 )
 
 # run_terminal is the tool that the llama model uses to interact with the terminal. It executes a bash command and returns the output.
@@ -47,14 +38,12 @@ def start_agent():
     prompt_1 = [
         {"role": "system", "content": "You are a helpful local terminal assistant. "
          "You must decide whether the user wants ACTION (execute a terminal command) or EXPLAIN (provide a conceptual explanation without executing). "
-         "EXPLAIN markers usually include phrases like: " + ", ".join([f"'{m}'" for m in EXPLAIN_MARKERS]) + ". "
-         "ACTION intent is often expressed with imperative verbs like: " + ", ".join([f"'{v}'" for v in ACTION_VERBS]) + ". "
-         "If the user is asking for EXPLANATION (e.g., contains an EXPLAIN marker), respond with an explanation and example commands, and do NOT call the tool. "
-         "If the user is asking you to DO something (e.g., imperative ACTION verb or clearly requesting execution), choose a suitable command and use the 'run_terminal' tool to run it. "
-         "If ambiguous, ask a single clarifying question: 'Do you want me to explain or run commands?'. "
+         "EXPLAIN markers are only: " + ", ".join([f"'{m}'" for m in EXPLAIN_MARKERS]) + ". "
+         "If the user message contains an EXPLAIN marker, respond with an explanation and example commands, and do NOT call the tool. "
+         "Otherwise, treat the request as ACTION and use the 'run_terminal' tool to run a suitable command. "
          "This includes file and folder operations (create, move, rename, delete), searching within files, listing contents, counting files/folders, printing paths, and inspecting text. "
          "Prefer case-insensitive file extension matching (use '-iname') unless the user specifies exact case. "
-         "Example: User asks 'put all the pngs into a folder called \"pictures\"' -> run 'mkdir -p \"pictures\" && mv *.png \"pictures\"'. "
+         "Example: User asks 'put all the X formatted files into a folder called \"pictures\"' -> run 'mkdir -p \"pictures\" && mv *.X \"pictures\"'. "
          "If the user asks for something unrelated to the terminal, respond with 'I can only help with terminal commands.' "
          "You have access to the user's files via the 'run_terminal' tool. "
          "Always stay in the current directory: " + os.getcwd()}
@@ -89,16 +78,18 @@ def start_agent():
         messages = list(prompt_1)
         messages.append({"role": "user", "content": user_input})
 
-        # Gate tools based on EXPLAIN markers (prevents tool-like JSON in case 2)
+        # Gate tools based on EXPLAIN markers
         lower = user_input.lower()
         is_explain = any(m in lower for m in EXPLAIN_MARKERS)
 
-        # Ask the model what to do (optimized)
+        # EXPLAIN: model provides explanation without tool call
         if is_explain:
             response = ollama.chat(
                 model='qwen2.5:3b',
                 messages=messages,
             )
+
+        # ACTION: model can call the run_terminal tool to execute commands
         else:
             response = ollama.chat(
                 model='qwen2.5:3b',
@@ -106,7 +97,7 @@ def start_agent():
                 tools=tool_schema,
             )
 
-        # case 1: model responds with terminal actions to take
+        # case 1: model responds with terminal actions to take (ACTION)
         if response.message.tool_calls:
             for call in response.message.tool_calls:
                 cmd = call.function.arguments.get('command')
@@ -125,14 +116,10 @@ def start_agent():
                 # print the comman line observation/output
                 if obs:
                     console.print(obs)
-                # else:
-                #     console.print("[green](No output)[/green]")
-                # print(response.message.tool_calls)
        
-       #case 2: model responds without taking terminal actions
+       #case 2: model responds without taking terminal actions (EXPLAIN)
         else:
             console.print(f"[green]William (case 2):[/green] {response.message.content}")
-            # print(response.message.tool_calls)
 
 if __name__ == "__main__":
     start_agent()
