@@ -34,7 +34,7 @@ def run_terminal(command: str):
 # The model can choose to call the run_terminal tool to execute commands.
 # it chooses to run_terminal by including a tool_calls field in its response, which specifies the command to run.
 def start_agent():
-    console.print(Panel("[bold cyan]Personal Worker Agent Active[/bold cyan]\nType 'exit' to quit.", title="Ollama M1"))
+    console.print(Panel("[bold cyan]Turtle Has Arrived[/bold cyan]\nType 'exit' to quit.", title="Ollama M1"))
 
     action_prompt = [{
         "role": "system", "content": "You are a helpful local terminal assistant. "
@@ -44,7 +44,7 @@ def start_agent():
         "Prefer case-insensitive file extension matching (use '-iname') unless the user specifies exact case. "
         "Example: User asks 'put all the X formatted files into a folder called \"pictures\"' -> run 'mkdir -p \"pictures\" && mv *.X \"pictures\"'. "
         "If the user asks for something unrelated to the terminal, respond with 'I can only help with terminal commands.' "
-        # "You have access to the user's files via the 'run_terminal' tool. "
+        "You have access to the user's files via the 'run_terminal' tool. "
         "Always stay in the current directory: " + os.getcwd()
     }]
 
@@ -115,7 +115,7 @@ def start_agent():
                 console.print(f"[yellow]\nWilliam wants to run the command:[/yellow] {cmd}")
                 
                 # if user enters y
-                user_input = input("\n>> [y/n]")
+                user_input = input("\n>> [y/n]\n")
 
                 if user_input.lower() not in ['y', 'yes']:
                     console.print("[red]\nCommand execution cancelled by user.[/red]")
@@ -126,7 +126,7 @@ def start_agent():
 
                 # print the comman line observation/output
                 if obs:
-                    console.print(obs)
+                    console.print(obs) #obs is the output from the terminal after running the command
        
        #case 2: model responds without taking terminal actions (EXPLAIN)
         else:

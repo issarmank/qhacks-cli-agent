@@ -1,2 +1,2 @@
 [console_scripts]
-worker = terminal_worker.worker:start_agent
+turtle = terminal_worker.worker:start_agent

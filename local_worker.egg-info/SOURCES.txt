@@ -5,4 +5,5 @@ local_worker.egg-info/dependency_links.txt
 local_worker.egg-info/entry_points.txt
 local_worker.egg-info/requires.txt
 local_worker.egg-info/top_level.txt
+terminal_worker/tool_schema.py
 terminal_worker/worker.py

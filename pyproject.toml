@@ -8,4 +8,4 @@ version = "0.1.0"
 dependencies = ["ollama", "rich"]
 
 [project.scripts]
-worker = "terminal_worker.worker:start_agent"
+turtle = "terminal_worker.worker:start_agent"
