@@ -4,7 +4,7 @@ import os
 from rich.console import Console
 from rich.panel import Panel
 
-# ollama pull qwen2.5-coder:7b
+# ollama pull qwen2.5:3b
 # pip install ollama rich
 
 #inside terminal_worker folder: pip install -e .
@@ -39,26 +39,29 @@ def start_agent():
 
         # Ask the Brain what to do
         response = ollama.chat(
-            model='qwen2.5-coder:7b',
+            model='qwen2.5:3b',
             messages=messages,
             tools=[run_terminal],
         )
 
         # If the Brain wants to move its 'hands' (execute a command)
         if response.message.tool_calls:
+            print ("here")
             for call in response.message.tool_calls:
                 cmd = call.function.arguments.get('command')
-                console.print(f"[yellow]⚙️  Robot is running:[/yellow] {cmd}")
+                console.print(f"[yellow]Robot is running:[/yellow] {cmd}")
                 
                 obs = run_terminal(cmd)
                 messages.append(response.message)
                 messages.append({"role": "tool", "content": obs, "name": "run_terminal"})
                 
                 # Get the final answer after the action
-                final = ollama.chat(model='qwen2.5-coder:7b', messages=messages)
-                console.print(f"[green]🤖 Robot here:[/green] {final.message.content}")
+                final = ollama.chat(model='qwen2.5:3b', messages=messages)
+                console.print(f"[green]Robot:[/green] {final.message.content}")
+                print(response.message.tool_calls)
         else:
-            console.print(f"[green]🤖 Robot:[/green] {response.message.content}")
+            console.print(f"[green]Else Robot:[/green] {response.message.content}")
+            print(response.message.tool_calls)
 
 if __name__ == "__main__":
     start_agent()
