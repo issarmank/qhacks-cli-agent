@@ -12,6 +12,19 @@ from rich.panel import Panel
 
 console = Console()
 
+# Intent hints (used in the system prompt for routing guidance)
+ACTION_VERBS = (
+    "create", "make", "mkdir", "add", "install", "remove", "delete", "rm", "move", "mv",
+    "copy", "cp", "rename", "run", "execute", "open", "close", "kill", "start", "stop",
+    "list", "find", "search", "grep", "cat", "touch", "chmod", "chown", "zip", "unzip",
+    "tar", "curl", "wget", "git", "pip", "brew"
+)
+
+EXPLAIN_MARKERS = (
+    "how do i", "how to", "what is", "explain", "why", "help me understand", "what does",
+    "difference between", "when should i", "best way to", "pros and cons"
+)
+
 # run_terminal is the tool that the llama model uses to interact with the terminal. It executes a bash command and returns the output.
 def run_terminal(command: str):
     """Executes a bash command and returns the output."""
@@ -34,7 +47,12 @@ def start_agent():
     
     prompt_1 = [
         {"role": "system", "content": "You are a helpful local terminal assistant. "
-         "When the user asks a question or commands you to perform an action that can be answered with a terminal command, choose a suitable command and use the 'run_terminal' tool to run it. "
+         "You must decide whether the user wants ACTION (execute a terminal command) or EXPLAIN (provide a conceptual explanation without executing). "
+         "EXPLAIN markers usually include phrases like: " + ", ".join([f"'{m}'" for m in EXPLAIN_MARKERS]) + ". "
+         "ACTION intent is often expressed with imperative verbs like: " + ", ".join([f"'{v}'" for v in ACTION_VERBS]) + ". "
+         "If the user is asking for EXPLANATION (e.g., contains an EXPLAIN marker), respond with an explanation and example commands, and do NOT call the tool. "
+         "If the user is asking you to DO something (e.g., imperative ACTION verb or clearly requesting execution), choose a suitable command and use the 'run_terminal' tool to run it. "
+         "If ambiguous, ask a single clarifying question: 'Do you want me to explain or run commands?'. "
          "This includes file and folder operations (create, move, rename, delete), searching within files, listing contents, counting files/folders, printing paths, and inspecting text. "
          "Prefer case-insensitive file extension matching (use '-iname') unless the user specifies exact case. "
          "Example: User asks 'put all the pngs into a folder called \"pictures\"' -> run 'mkdir -p \"pictures\" && mv *.png \"pictures\"'. "
