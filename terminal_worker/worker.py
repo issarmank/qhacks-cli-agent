@@ -11,8 +11,9 @@ from rich.panel import Panel
 # 'worker'
 console = Console()
 
+# these phrases indicate the user wants an explanation rather than an action
 EXPLAIN_MARKERS = (
-    "how can i", "how do i", "what is", "why does", "explain"
+    "how can i", "how do i", "why does", "explain"
 )
 
 # run_terminal is the tool that the llama model uses to interact with the terminal. It executes a bash command and returns the output.
@@ -34,20 +35,25 @@ def run_terminal(command: str):
 # it chooses to run_terminal by including a tool_calls field in its response, which specifies the command to run.
 def start_agent():
     console.print(Panel("[bold cyan]Personal Worker Agent Active[/bold cyan]\nType 'exit' to quit.", title="Ollama M1"))
-    
-    prompt_1 = [
-        {"role": "system", "content": "You are a helpful local terminal assistant. "
-         "You must decide whether the user wants ACTION (execute a terminal command) or EXPLAIN (provide a conceptual explanation without executing). "
-         "EXPLAIN markers are only: " + ", ".join([f"'{m}'" for m in EXPLAIN_MARKERS]) + ". "
-         "If the user message contains an EXPLAIN marker, respond with an explanation and example commands, and do NOT call the tool. "
-         "Otherwise, treat the request as ACTION and use the 'run_terminal' tool to run a suitable command. "
-         "This includes file and folder operations (create, move, rename, delete), searching within files, listing contents, counting files/folders, printing paths, and inspecting text. "
-         "Prefer case-insensitive file extension matching (use '-iname') unless the user specifies exact case. "
-         "Example: User asks 'put all the X formatted files into a folder called \"pictures\"' -> run 'mkdir -p \"pictures\" && mv *.X \"pictures\"'. "
-         "If the user asks for something unrelated to the terminal, respond with 'I can only help with terminal commands.' "
-         "You have access to the user's files via the 'run_terminal' tool. "
-         "Always stay in the current directory: " + os.getcwd()}
-    ]
+
+    action_prompt = [{
+        "role": "system", "content": "You are a helpful local terminal assistant. "
+        "your response MUST include a tool_calls field with the 'run_terminal' tool to execute a terminal command. "
+        "use the 'run_terminal' tool to run a suitable command for the user's request. "
+        "This includes file and folder operations (create, move, rename, delete), searching within files, listing contents, counting files/folders, printing paths, and inspecting text. "
+        "Prefer case-insensitive file extension matching (use '-iname') unless the user specifies exact case. "
+        "Example: User asks 'put all the X formatted files into a folder called \"pictures\"' -> run 'mkdir -p \"pictures\" && mv *.X \"pictures\"'. "
+        "If the user asks for something unrelated to the terminal, respond with 'I can only help with terminal commands.' "
+        # "You have access to the user's files via the 'run_terminal' tool. "
+        "Always stay in the current directory: " + os.getcwd()
+    }]
+
+    explain_prompt = [{
+        "role": "system", "content": "You are a helpful local terminal assistant. "
+        "Provide explanations and example commands for the user's conceptual questions about terminal operations. "
+        "Do NOT execute any commands. "
+        "If the user asks for something unrelated to the terminal, respond with 'I can only help with terminal commands.' "
+    }]
 
     # Define a strict tool schema (improves consistent structured tool_calls)
     tool_schema = [
@@ -74,9 +80,6 @@ def start_agent():
     while True:
         user_input = input("\n>> ")
         if user_input.lower() in ['exit', 'quit']: break
-        
-        messages = list(prompt_1)
-        messages.append({"role": "user", "content": user_input})
 
         # Gate tools based on EXPLAIN markers
         lower = user_input.lower()
@@ -84,16 +87,24 @@ def start_agent():
 
         # EXPLAIN: model provides explanation without tool call
         if is_explain:
+            explain_messages = list(explain_prompt)  # reset to explain prompt each time
+            explain_messages.append({"role": "user", "content": user_input})
+
+            print ("EXPLAIN")
+
             response = ollama.chat(
                 model='qwen2.5:3b',
-                messages=messages,
+                messages=explain_messages,
             )
 
         # ACTION: model can call the run_terminal tool to execute commands
         else:
+            action_messages = list(action_prompt)  # reset to action prompt each time
+            action_messages.append({"role": "user", "content": user_input})
+
             response = ollama.chat(
                 model='qwen2.5:3b',
-                messages=messages,
+                messages=action_messages,
                 tools=tool_schema,
             )
 
