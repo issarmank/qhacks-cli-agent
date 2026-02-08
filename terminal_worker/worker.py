@@ -13,7 +13,7 @@ console = Console()
 
 # these phrases indicate the user wants an explanation rather than an action
 EXPLAIN_MARKERS = (
-    "how can i", "how do i", "why does", "explain"
+    "how can i", "how do i", "why does", "explain", "how do you", "how can you"
 )
 
 # run_terminal is the tool that the llama model uses to interact with the terminal. It executes a bash command and returns the output.
@@ -34,31 +34,131 @@ def run_terminal(command: str):
 # The model can choose to call the run_terminal tool to execute commands.
 # it chooses to run_terminal by including a tool_calls field in its response, which specifies the command to run.
 def start_agent():
-    console.print(Panel("[bold cyan]Turtle Has Arrived[/bold cyan]\nType 'exit' to quit.", title="Ollama M1"))
+    console.print(Panel("[bold green]Turtle Has Arrived[/bold green]\nType 'exit' to quit.", title="Ollama M1"))
+
+    # action_prompt = [{
+    #     "role": "system", "content": "You are a helpful local terminal assistant. "
+    #     "your response MUST include a tool_calls field with the 'run_terminal' tool to execute a terminal command. "
+    #     "use the 'run_terminal' tool to run a suitable command for the user's request. "
+    #     "This includes file and folder operations (create, move, rename, delete), searching within files, listing contents, counting files/folders, printing paths, and inspecting text. "
+    #     "Prefer case-insensitive file extension matching (use '-iname') unless the user specifies exact case. "
+    #     "Example: User asks 'put all the X formatted files into a folder called \"pictures\"' -> run 'mkdir -p \"pictures\" && mv *.X \"pictures\"'. "
+    #     "If the user asks for something unrelated to the terminal, respond with 'I can only help with terminal commands.' "
+    #     "You have access to the user's files via the 'run_terminal' tool. "
+    #     "Always stay in the current directory: " + os.getcwd()
+    # }]
+
+    # explain_prompt = [{
+    #     "role": "system", "content": (
+    #         "You are a helpful local terminal assistant.\n"
+    #         "EXPLAIN MODE: Provide a short, terminal-friendly answer.\n"
+    #         "- Keep it concise: 1-2 sentances explaining the concept.\n"
+    #         "- Include at 1–3 example commands (as plain bash), only if helpful.\n"
+    #         "- No long paragraphs. No extra context. No storytelling.\n"
+    #         "- Do NOT execute any commands.\n"
+    #         "- Do NOT output JSON or tool-call objects.\n"
+    #         "If the user asks for something unrelated to the terminal, respond with: "
+    #         "'I can only help with terminal commands.'"
+    #     )
+    # }]
 
     action_prompt = [{
-        "role": "system", "content": "You are a helpful local terminal assistant. "
-        "your response MUST include a tool_calls field with the 'run_terminal' tool to execute a terminal command. "
-        "use the 'run_terminal' tool to run a suitable command for the user's request. "
-        "This includes file and folder operations (create, move, rename, delete), searching within files, listing contents, counting files/folders, printing paths, and inspecting text. "
-        "Prefer case-insensitive file extension matching (use '-iname') unless the user specifies exact case. "
-        "Example: User asks 'put all the X formatted files into a folder called \"pictures\"' -> run 'mkdir -p \"pictures\" && mv *.X \"pictures\"'. "
-        "If the user asks for something unrelated to the terminal, respond with 'I can only help with terminal commands.' "
-        "You have access to the user's files via the 'run_terminal' tool. "
-        "Always stay in the current directory: " + os.getcwd()
+        "role": "system",
+        "content": (
+            "You are a terminal command execution assistant that performs actions directly.\n\n"
+            "RESPONSE FORMAT:\n"
+            "- content: leave empty (\"\") or give a minimal acknowledgment\n"
+            "- tool_calls: always include run_terminal with the exact command\n\n"
+            "RULES:\n"
+            "1) Do not explain; execute commands directly.\n"
+            "2) Always include a tool_call with the precise command.\n"
+            "3) Omit tool_calls only if the request is unrelated to terminal use.\n"
+            "4) Infer the exact command and flags needed.\n"
+            "5) Use specific filenames/paths if provided; otherwise use generic names.\n"
+            "6) Match flags to intent (recursive, force, verbose, etc.).\n"
+            "7) For filename searches, use 'find . -type f -name \"*pattern*\"' (or -iname when case-insensitive).\n"
+            "8) Always stay in the current directory: " + os.getcwd() + "\n\n"
+            "EXAMPLES:\n"
+            "{\n"
+            "  \"content\": \"\",\n"
+            "  \"tool_calls\": [{\n"
+            "    \"function\": {\n"
+            "      \"name\": \"run_terminal\",\n"
+            "      \"arguments\": { \"command\": \"find . -type f -name \\\"*3010*\\\"\" }\n"
+            "    }\n"
+            "  }]\n"
+            "}\n\n"
+            "{\n"
+            "  \"content\": \"\",\n"
+            "  \"tool_calls\": [{\n"
+            "    \"function\": {\n"
+            "      \"name\": \"run_terminal\",\n"
+            "      \"arguments\": { \"command\": \"touch file.txt\" }\n"
+            "    }\n"
+            "  }]\n"
+            "}\n\n"
+            "{\n"
+            "  \"content\": \"\",\n"
+            "  \"tool_calls\": [{\n"
+            "    \"function\": {\n"
+            "      \"name\": \"run_terminal\",\n"
+            "      \"arguments\": { \"command\": \"ls -la\" }\n"
+            "    }\n"
+            "  }]\n"
+            "}\n\n"
+            "{\n"
+            "  \"content\": \"\",\n"
+            "  \"tool_calls\": [{\n"
+            "    \"function\": {\n"
+            "      \"name\": \"run_terminal\",\n"
+            "      \"arguments\": { \"command\": \"rm myfile.txt\" }\n"
+            "    }\n"
+            "  }]\n"
+            "}\n\n"
+            "{\n"
+            "  \"content\": \"I can only execute terminal commands.\",\n"
+            "  \"tool_calls\": []\n"
+            "}"
+        )
     }]
 
     explain_prompt = [{
-        "role": "system", "content": (
-            "You are a helpful local terminal assistant.\n"
-            "EXPLAIN MODE: Provide a short, terminal-friendly answer.\n"
-            "- Keep it concise: 1-2 sentances explaining the concept.\n"
-            "- Include at 1–3 example commands (as plain bash), only if helpful.\n"
-            "- No long paragraphs. No extra context. No storytelling.\n"
-            "- Do NOT execute any commands.\n"
-            "- Do NOT output JSON or tool-call objects.\n"
-            "If the user asks for something unrelated to the terminal, respond with: "
-            "'I can only help with terminal commands.'"
+        "role": "system",
+        "content": (
+            "You are a terminal command assistant that explains and executes commands.\n\n"
+            "RESPONSE FORMAT:\n"
+            "- content: one sentence explaining command syntax\n"
+            "- tool_calls: always include run_terminal with an example command\n\n"
+            "RULES:\n"
+            "1) The explanation must be 2 concise sentence.\n"
+            "2) Always include a tool_call with a practical example.\n"
+            "3) Omit tool_calls only if the request is unrelated to terminal use.\n"
+            "4) Use generic filenames like \"example.txt\" when demonstrating.\n"
+            "5) Choose safe, common command variants.\n"
+            "7) Always stay in the current directory: " + os.getcwd() + "\n\n"
+            "EXAMPLES:\n"
+            "{\n"
+            "  \"content\": \"Use 'touch filename.txt' to create an empty text file, or 'echo \\\"content\\\" > filename.txt' to create one with content.\",\n"
+            "  \"tool_calls\": [{\n"
+            "    \"function\": {\n"
+            "      \"name\": \"run_terminal\",\n"
+            "      \"arguments\": { \"command\": \"touch example.txt\" }\n"
+            "    }\n"
+            "  }]\n"
+            "}\n\n"
+            "{\n"
+            "  \"content\": \"The 'ls' command lists files, with 'ls -la' showing all files including hidden ones with details.\",\n"
+            "  \"tool_calls\": [{\n"
+            "    \"function\": {\n"
+            "      \"name\": \"run_terminal\",\n"
+            "      \"arguments\": { \"command\": \"ls -la\" }\n"
+            "    }\n"
+            "  }]\n"
+            "}\n\n"
+            "{\n"
+            "  \"content\": \"I can only help with terminal and command-line tasks.\",\n"
+            "  \"tool_calls\": []\n"
+            "}"
         )
     }]
 
@@ -97,7 +197,8 @@ def start_agent():
             messeges = list(explain_prompt)  # reset to explain prompt each time
             messeges.append({"role": "user", "content": user_input})
 
-            print ("EXPLAIN MODE")
+            console.print(f"[hot_pink]Turtle is thinking...[/hot_pink]")
+
 
         # ACTION: model can call the run_terminal tool to execute commands
         else:
@@ -108,14 +209,14 @@ def start_agent():
         response = ollama.chat(
             model='qwen2.5:3b',
             messages=messeges,
-            tools=tool_schema,
+            tools=tool_schema, 
         )
 
         # case 1: model responds with terminal actions to take (ACTION)
         if response.message.tool_calls and not is_explain:
             for call in response.message.tool_calls:
                 cmd = call.function.arguments.get('command')
-                console.print(f"[yellow]\nWilliam wants to run the command:[/yellow] [bold]{cmd}[/bold]")
+                console.print(f"[yellow]\nTurtle wants to run the command:[/yellow] [bold]{cmd}[/bold]")
                 
                 # if user enters y
                 user_input = input("\n>> [y/n]\n")
@@ -135,8 +236,8 @@ def start_agent():
             # print ("explain")
             for call in response.message.tool_calls:
                 cmd = call.function.arguments.get('command')
-                console.print(f"[green]William (explain):[/green] {response.message.content}")
-                console.print(f"[yellow]\nDo you want to run this command?:[/yellow] [bold]{cmd}[/bold]")
+                console.print(f"[green]Turtle says:[/green] {response.message.content}")
+                console.print(f"[dark_orange]Do you want to run this command?:[/dark_orange] [bold]{cmd}[/bold]")
 
                 user_input = input("\n>> [y/n]\n")
 
@@ -145,6 +246,7 @@ def start_agent():
                     continue
                 
                 obs = run_terminal(cmd)
+                print (obs) #obs is the output from the terminal after running the command
                 console.print("[green]\nCommand excecuted.[/green]")
 
         elif(not response.message.tool_calls):
