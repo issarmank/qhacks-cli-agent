@@ -1,4 +1,4 @@
-# Turtle
+# Turtle 𓆉 
 
 Turtle is a local terminal assistant CLI that can **either explain** terminal concepts or **run commands for you** (with a safety confirmation prompt) using a tool-calling agent backed by Ollama.
 
